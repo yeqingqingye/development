@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>视频录制</title>
+  <link rel="stylesheet" href="build/css/common.css">
+  <link rel="stylesheet" href="build/css/style.css">
+  <script src='build/js/jquery.min.js'></script>
+</head>
+  <script type="text/javascript">
+  /*
+  version: 23
+  接口定义参考文档
+
+  step:
+  1 使用前包含配套的JS
+  2 由createNativeBridge创建，异步得到bridge （该步骤可能后续根据每个平台不同，操作方法有少许区别）
+  3 bridge 提供多个接口，除了AttachWidgetObserver之外，其它接口均为异步接口
+  */
+  var capturerId = 0;
+  var scCapturerId = -1;
+  var playerId = 0;
+  var audioDevices = [];
+  var videoDevices = [];
+  var capturerMute = false;
+  var dlgId = -1;
+  var cameraPos = 2;
+  var closeEventObId = '';
+  var previewVisible = true;
+
+  function getProductId() {
+    nativeBridge.getProductId(function (args) {
+      myLog(args.productId);
+    });
+  }
+
+  function getClientType() {
+    nativeBridge.getClientType(function (args) {
+      myLog(args.clientType);
+    });
+  }
+
+  function createCapturer() {
+    nativeBridge.createWidget("capturer",
+    {source: "camera", pos: {x: 344, y: 52, width: 640, height: 480}, streamId: "test_003"},
+    function (args) {
+      myLog(args.id);
+      if (args.error == 0) {
+        capturerId = args.id;
+        attachCapturerObserver(args.id);
+      }
+    });
+  }
+
+  function createPlayer() {
+    nativeBridge.createWidget("player",
+    {pos: {x: 480, y: 30, width: 480, height: 270}, streamId: "test_001"}, function (args) {
+      myLog(args.id);
+      if (args.error == 0) {
+        playerId = args.id;
+        attachPlayerObserver(args.id);
+      }
+    });
+  }
+
+  function createScreenCapturer() {
+    nativeBridge.createWidget("capturer", {
+      source: "screen",
+      pos: {x: 344, y: 52, width: 640, height: 480},
+      streamId: "test5"
+    }, function (args) {
+      myLog(JSON.stringify(args));
+      if (args.error == 0) {
+        capturerId = args.id;
+        attachCapturerObserver(args.id);
+      }
+    });
+  }
+
+  function createDouble() {
+    createScreenCapturer(); 
+    createCapturer();
+  }
+
+  function createScreenWithCameraCapturer() {
+    nativeBridge.createWidget(
+      "capturer",
+      {source: "screenWithCamera",
+      pos: {x: 344, y: 52, width: 640, height: 480},
+      cameraAtScreenPosition: cameraPos,
+      streamId: "test5"}, function (args) {
+        myLog(JSON.stringify(args));
+        if (args.error == 0) {
+          scCapturerId = args.id;
+          attachCapturerObserver(args.id);
+        }
+      });
+    }
+
+  function setCapturerStart(id) {
+    nativeBridge.setWidgetAttributes(args.id, {status: "start"});
+  }
+
+  function setPlayerStart(id) {
+    nativeBridge.setWidgetAttributes(args.id, {status: "start"});
+  }
+
+  function attachCapturerObserver(id) {
+    nativeBridge.attachWidgetObserver(id, function (args) {
+      myLog("capturer " + id + " ob:" + args.code);
+    });
+  }
+
+  function attachPlayerObserver(id) {
+    nativeBridge.attachWidgetObserver(id, function (args) {
+      myLog("player " + JSON.stringify(args));
+    });
+  }
+
+  function destroyCapturer() {
+    nativeBridge.destroyWidget(capturerId);
+    nativeBridge.destroyWidget(scCapturerId);
+  }
+
+  function destroyPlayer() {
+    nativeBridge.destroyWidget(playerId);
+  }
+
+  function getAudioDevice() {
+    nativeBridge.getWidgetDevice(capturerId, "audio", function (args) {
+      myLog(JSON.stringify(args));
+      audioDevices = args.devices;
+    });
+  }
+
+  function getVideoDevice() {
+    nativeBridge.getWidgetDevice(capturerId, "video", function (args) {
+      myLog(JSON.stringify(args));
+      videoDevices = args.devices;
+    });
+  }
+
+  function playerFullscreen() {
+    nativeBridge.setWidgetAttributes(playerId, {fullscreen: true}, function (result) {
+      if (result.error != 0) {
+        alert(result.error);
+      }
+    });
+  }
+
+  function setAudioDevice() {
+    if (capturerId === 0) {
+      alert("请先创建采集器");
+    } else if (!audioDevices[0]) {
+      alert("没有获取到音频设备");
+    } else {
+      nativeBridge.setWidgetDevice(capturerId, "audio", audioDevices[0].id);
+    }
+  }
+
+  function setVideoDevice() {
+    if (capturerId === 0) {
+      alert("请先创建采集器");
+    } else if (!videoDevices[0]) {
+      alert("没有获取到视频设备");
+    } else {
+      myLog(videoDevices[1].id);
+      nativeBridge.setWidgetDevice(capturerId, "video", videoDevices[1].id);
+    }
+  }
+
+  function setCapturerMute() {
+    if (capturerId === 0) {
+      alert("请先创建采集器");
+    } else {
+      capturerMute = !capturerMute;
+      nativeBridge.setWidgetAttributes(capturerId, {mute: capturerMute});
+    }
+  }
+
+  function dataReport() {
+    nativeBridge.dataReport(
+      "60", [{key: "303", value: "http://qq.com"}, {key: "kkk", value: "vvv"}]);
+  }
+
+  function userLogin() {
+    nativeBridge.notifyUserLogin("tal-test-user", {});
+  }
+
+  function userLogout() {
+    nativeBridge.notifyUserLogout();
+  }
+
+  function closeWindow() {
+    nativeBridge.closeWindow();
+  }
+
+  function moveCapturer() {
+    nativeBridge.setWidgetAttributes(capturerId, {pos: {x: 50, y: 100, width: 1000, height: 700}});
+  }
+
+  function movePlayer() {
+    nativeBridge.setWidgetAttributes(playerId, {pos: {x: 100, y: 100, width: 450, height: 250}});
+  }
+
+  function startPublish() {
+    nativeBridge.setWidgetAttributes(capturerId, {status: "startPublish"});
+    nativeBridge.setWidgetAttributes(scCapturerId, {status: "startPublish"});
+  }
+
+  function stopPush() {
+    nativeBridge.setWidgetAttributes(capturerId, {status: "stopPublish"});
+    nativeBridge.setWidgetAttributes(scCapturerId, {status: "stopPublish"});
+  }
+
+
+  function showMinimized() {
+    nativeBridge.setWindowState("minimized");
+  }
+
+  function showNormal() {
+    nativeBridge.setWindowState("normal");
+  }
+
+  function showMaximized() {
+    nativeBridge.setWindowState("maximized");
+  }
+
+  function showFullscreen() {
+    nativeBridge.setWindowState("fullscreen");
+  }
+
+  function onOtherPageMsg(message) {
+    myLog(JSON.stringify(message));
+    if (message.winid == dlgId) {
+      nativeBridge.sendMessage("收到消息的回复");
+    }
+  }
+
+  function debugCreateNavigateDialog() {
+    nativeBridge.debugCreateNavigateDialog();
+  }
+
+  function createDialog() {
+    nativeBridge.createDialog({
+      pos: {x: -1, y: -1, width: 400, height: 300},
+      url: "api-test-dialog.html?a=3424&b=342"}, function(args) {
+        dlgId = args.winid;
+        myLog(JSON.stringify(args));
+      });
+  }
+
+  function getScreenCount() {
+    nativeBridge.getScreenCount(function (count) {
+        myLog("screencount: " + count);
+    });
+  }
+
+  function markScreen() {
+    nativeBridge.markScreen(0);
+  }
+
+  function broadCast() {
+    nativeBridge.sendMessage({"hehe": "我是广播"});
+  }
+
+  function setPreviewPosition() {
+    nativeBridge.setWidgetAttributes(scCapturerId, {cameraAtScreenPosition: (++cameraPos % 9)})
+  }
+
+  function audioChange() {
+    var audioSelect = document.getElementById('audio-select');
+    var id = audioSelect.options[audioSelect.selectedIndex].value;
+    nativeBridge.setWidgetDevice(capturerId, "audio", id);
+  }
+
+  function videoChange() {
+    var videoSelect = document.getElementById('video-select');
+    var id = videoSelect.options[videoSelect.selectedIndex].value;
+    nativeBridge.setWidgetDevice(capturerId, "video", id);
+  }
+
+  function detachCloseEventObserver() {
+    nativeBridge.detachCloseEventObserver(closeEventObId);
+  }
+
+  function setPreviewVisible() {
+    nativeBridge.setWidgetAttributes(scCapturerId, {cameraPreviewVisible: previewVisible});
+    previewVisible = !previewVisible;
+  }
+
+window.onload = function () {
+  createNativeBridge(function (bridge) {
+    window.nativeBridge = bridge;
+
+    nativeBridge.getWidgetDevice(-1, "audio", function (args) {
+      for (var i = 0; i < args.devices.length; ++i) {
+        var x = document.createElement('option');
+        x.value = args.devices[i].id;
+        x.text = args.devices[i].name;
+        var audioSelect = document.getElementById('audio-select');
+        audioSelect.add(x, null);
+      }
+    });
+
+    nativeBridge.getWidgetDevice(-1, "video", function (args) {
+      for (var i = 0; i < args.devices.length; ++i) {
+        var x = document.createElement('option');
+        x.value = args.devices[i].id;
+        x.text = args.devices[i].name;
+        var videoSelect = document.getElementById('video-select');
+        videoSelect.add(x, null);
+      }
+    });
+
+  });
+}
+
+function myLog(log) {
+  document.getElementById("txt-area").value += log + "\n";
+}
+</script>
+<body>
+  <div class="view">
+    <div class="view_left fl">
+      <div class="course">
+        <div class="course_title tof">
+          <span class="expand" expand='close'></span>
+          <span>清北训礼讲座</span>  
+        </div>
+        <ul class="course_list">
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+        </ul>
+      </div>
+      <div class="course">
+        <div class="course_title tof">
+          <span class="expand" expand='close'></span>
+          <span>清北训礼讲座</span>  
+        </div>
+        <ul class="course_list">
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+        </ul>
+      </div>
+      <div class="course">
+        <div class="course_title tof">
+          <span class="expand" expand='close'></span>
+          <span>清北训礼讲座</span>  
+        </div>
+        <ul class="course_list">
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课数学计算能力突破课数学计算能力突破课数学计算能力突破课</span>
+          </li>
+        </ul>
+      </div>
+      <div class="course">
+        <div class="course_title tof">
+          <span class="expand" expand='close'></span>
+          <span>清北训礼讲座</span>  
+        </div>
+        <ul class="course_list">
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课数学计算能力突破课数学计算能力突破课数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+        </ul>
+      </div>
+      <div class="course">
+        <div class="course_title tof">
+          <span class="expand" expand='close'></span>
+          <span>清北训礼讲座</span>  
+        </div>
+        <ul class="course_list">
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课数学计算能力突破课数学计算能力突破课数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+          <li>
+            <span class="list_item tof">数学计算能力突破课</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="view_right fr">
+      <div class="live_title">
+        <h2>
+          2016年数学装逼班
+        </h1>
+      </div>
+      <div class="video">
+        <div class="caputer">
+
+           
+        </div>
+        <div class="video_control">
+            <div class="time">
+              <span>0:0:0</span>  
+            </div>
+            <div class="course_status fr">
+              <span class="doing doing_status">上课</span>
+            </div>
+        </div>
+      </div>
+      <div class="video_configure">
+
+        <div id="cap-div"></div>
+        <div id="cap-div-2"></div>
+        <div id="log-area">
+          <span>摄像头</span>
+          <select id="audio-select" onchange="audioChange()">
+          </select>
+          <span>麦克风</span>
+          <select id="video-select" onchange="videoChange()">
+          </select>
+          <span>直播源</span>
+          <select id='function_select'>
+            <option value ="avo" selected>电脑屏幕+摄像头</option>
+            <option value ="ao">电脑屏幕</option>
+            <option value="vo">摄像头</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <textarea id="txt-area"></textarea>
+  </div>
+</body>
+<script>
+  jQuery(document).ready(function($) {
+    var totalHeight = $('.view_left').height();
+        courseHeight = $('.course_title').eq(0).height() + 1,
+        courseNum = $('.course_title').length,
+        courseListHeight = totalHeight - courseNum*courseHeight;
+    if (courseListHeight < 100) {
+      $('.course_list').height(300);
+    } else {
+      $('.course_list').height(courseListHeight-25);
+    }
+
+
+    var courseStatus = false;
+    var doingFlag = false;
+    var doneFlag = false;
+    var showTime = {
+        sec : 0,
+        min : 0,
+        hour : 0,
+        timer : null,
+        flag : true,
+        show : function(){
+            showTime.sec++;
+            if(showTime.sec==60){
+                showTime.min++;
+                showTime.sec=0;
+            }
+            if(showTime.min==60){
+                showTime.hour++;
+                showTime.min=0;
+            }
+            var secStr=showTime.sec;
+            if(showTime.sec<10){
+                secStr="0"+showTime.sec;
+            }
+            var minStr=showTime.min;
+            if(showTime.min<10){
+                minStr="0"+showTime.min;
+            }
+            var hourStr=showTime.hour;
+            if(showTime.hour<10){
+                hourStr="0"+showTime.hour;
+            }
+            $('.time span').html(hourStr + ':' + minStr + ':' + secStr);
+        }
+    };
+
+
+    $(document).on('click', '.course_title', function() {
+
+      var $expandEle = $(this).children('.expand');
+      var $listEle = $(this).siblings('.course_list');
+      $('.expand').removeClass('do_expand');
+      $('.course_list').hide();
+      if ($expandEle.attr('expand') === 'open') {
+        $expandEle.attr('expand', 'close')
+        $expandEle.removeClass('do_expand');
+        $listEle.hide();
+      } else {
+        $expandEle.attr('expand', 'open')
+        $expandEle.addClass('do_expand');
+        $listEle.show();
+      }
+
+    }).on('click', '.course_list li', function() {
+
+      var liveStr = '<span class="living">直播中</span>';
+      $(this).children('.list_item').width($(this).width() - 50);
+      $(this).append(liveStr)
+
+    }).on('click', '.doing', function() {
+
+      var liveFunction = $('#function_select').val(); 
+      var liveStr = ''
+
+      if (doneFlag) {
+        alert('直播课程已结束');
+        return false;
+      }
+       
+      if (!doingFlag) {
+        switch(liveFunction) {
+          case 'avo' : createScreenWithCameraCapturer(); break;
+          case 'ao' : createScreenCapturer(); break;
+          case 'vo' : createCapturer(); break;
+        }
+      }
+
+      switch(liveFunction) {
+        case 'avo' : liveStr = '电脑屏幕+摄像头'; break;
+        case 'ao' : liveStr = '电脑屏幕'; break;
+        case 'vo' : liveStr = '摄像头'; break;
+      }
+
+      if (courseStatus === false) {
+        var replay = confirm('如果要改变直播模式，请选择下面的直播源模式进行切换，确定以当前<<<' + liveStr + '>>>模式进行上课吗？');
+        if (replay) {
+          courseStatus = true;
+          doingFlag = true;
+          showTime.timer = setInterval(showTime.show, 1000);
+          $(this).removeClass('doing_status').html('下课');
+        } else {
+          destroyCapturer();
+        }
+      } else {
+        var replay = confirm('确定授课全部结束，要下课生成回放吗？');
+        if (replay) {
+          doneFlag = true;
+          $(this).html('课程已结束');
+          clearInterval(showTime.timer);
+          destroyCapturer();
+        }
+      }
+
+    }).on('change', '#function_select', function() {
+        var liveFunction = $(this).val();
+        destroyCapturer();
+        doingFlag = true;
+        window.setTimeout(function(){
+          switch(liveFunction) {
+            case 'avo' : createScreenWithCameraCapturer(); break;
+            case 'ao' : createScreenCapturer(); break;
+            case 'vo' : createCapturer(); break;
+          }
+        }, 500)
+        
+    });
+
+  });
+  
+</script>
+</html>

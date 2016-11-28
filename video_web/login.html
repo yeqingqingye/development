@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>login</title>
+	<link rel="stylesheet" href="build/css/common.css">
+	<link rel="stylesheet" href="build/css/style.css">
+	<script src='build/js/jquery.min.js'></script>
+</head>
+<body>
+	<div class="login">
+		<header class="login_header">
+			<div id='close'>×</div>
+			<div class="logo">
+				<img src="build/images/logo.png" alt="">
+			</div>
+			<p>群直播_教师客户端</p>
+		</header>
+		<section class="login_body">
+			<div class="input_text">
+				<div class="text">
+					<span>用户名</span>
+					<input type="text">
+				</div>
+				<div class="text">
+					<span>密&nbsp&nbsp&nbsp码</span>
+					<input type="password">
+				</div>
+			</div>
+			<div class="remind">
+				<input id='next_sign' type="checkbox" value=""/>
+				<label for='next_sign' class="next_sign">下次直接登入</label>
+				<a href="" class="miss">忘记密码</a> 
+			</div>
+			<div class="btn">
+				<i></i>
+				<span>登入系统</span>
+			</div>
+		</section>
+	</div>
+</body>
+<script>
+	$(document).ready(function($) {
+		alert('kkk')
+		$.ajax({
+			url: 'http://122.112.13.37:8181/user/login/',
+			type: 'POST',
+			success: function(data) {
+				alert('data')
+			}
+		})	
+	});
+
+</script>
+</html>
